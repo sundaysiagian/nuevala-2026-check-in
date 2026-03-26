@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NUEVALA – Ticket Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: sans-serif;
+      background: #f4f4f4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+      min-height: 100vh;
+    }
+    h1 { font-size: 1.3rem; margin-bottom: 16px; color: #222; text-align: center; }
+
+    .section {
+      width: 100%;
+      max-width: 360px;
+      margin-bottom: 18px;
+    }
+    .section label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: bold;
+      color: #555;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .section label .required {
+      color: #e53935;
+      margin-left: 3px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 1rem;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+    }
+    input[type="text"]:focus { outline: none; border-color: #4CAF50; }
+    input.error-border { border-color: #e53935; }
+
+    #reader { width: 100%; max-width: 360px; background: #ddd; border-radius: 8px; overflow: hidden; }
+
+    .btn {
+      margin-top: 12px;
+      padding: 12px 28px;
+      font-size: 1rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-block;
+    }
+    #startScanBtn { background: #4CAF50; color: #fff; }
+    #stopScanBtn  { background: #e53935; color: #fff; display: none; }
+
+    .divider {
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0 16px;
+      color: #aaa;
+      font-size: 0.85rem;
+    }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #ccc; }
+
+    .code-row { width: 100%; max-width: 360px; display: flex; gap: 8px; }
+    .code-row input {
+      flex: 1;
+      padding: 12px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      text-align: center;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+    }
+    .code-row input:focus { outline: none; border-color: #4CAF50; }
+    .code-row button {
+      padding: 12px 16px;
+      background: #333;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    #cameraError {
+      width: 100%;
+      max-width: 360px;
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      display: none;
+      margin-top: 10px;
+    }
+    #cameraError strong { display: block; margin-bottom: 6px; font-size: 0.95rem; }
+
+    #spinner {
+      margin-top: 16px;
+      width: 28px; height: 28px;
+      border: 4px solid #ccc;
+      border-top-color: #333;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #result {
+      margin-top: 16px;
+      width: 100%;
+      max-width: 360px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      text-align: center;
+      display: none;
+      line-height: 1.6;
+      white-space: pre-line;
+    }
+    #result.success       { background: #d4edda; color: #155724; }
+    #result.already_valid { background: #fff3cd; color: #856404; }
+    #result.not_found     { background: #f8d7da; color: #721c24; }
+    #result.error         { background: #f8d7da; color: #721c24; }
+    #result.info          { background: #e2e3e5; color: #383d41; }
+  </style>
+</head>
+
+<body>
+
+  <video id="analyzer-bait" style="display:none;" autoplay></video>
+
+  <h1>NUEVALA 2026 – Ticket Scanner</h1>
+
+  <!-- Nama penukar — must be filled first -->
+  <div class="section">
+    <label>Nama Penukar <span class="required">*</span></label>
+    <input type="text" id="namaPenukar" placeholder="Nama lengkap penukar tiket" autocomplete="off">
+  </div>
+
+  <!-- QR Scanner -->
+  <div id="reader"></div>
+  <button class="btn" id="startScanBtn" onclick="startScanner()">Mulai Scan</button>
+  <button class="btn" id="stopScanBtn"  onclick="stopScanner()">Stop</button>
+
+  <div id="cameraError">
+    <strong>⚠ Kamera tidak dapat diakses.</strong>
+    Pastikan izin kamera sudah diberikan:<br>
+    • <strong>iOS Safari:</strong> Pengaturan → Safari → Kamera → Izinkan<br>
+    • <strong>Android Chrome:</strong> Ketuk ikon kunci di address bar → Izin → Kamera → Izinkan<br>
+    • Jika sudah diizinkan, muat ulang halaman ini.<br><br>
+    Atau gunakan kode manual di bawah.
+  </div>
+
+  <!-- Manual code fallback -->
+  <div class="divider">atau masukkan kode manual</div>
+  <div class="code-row">
+    <input type="text" id="codeInput" maxlength="4" placeholder="XXXX"
+           autocomplete="off" autocorrect="off" spellcheck="false">
+    <button onclick="verifyCode()">Verifikasi</button>
+  </div>
+
+  <div id="spinner"></div>
+  <div id="result"></div>
+
+  <script>
+    if (false) { 
+      navigator.mediaDevices.getUserMedia({ video: true }); 
+    }
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyknKMS-JUcXn2RdQObZvjBEkJMLdzZ5VU5cmgv3ejIxDaNeqhdhuDHKi2vvaZl8HyVig/exec'; 
+    const scanner     = new Html5Qrcode("reader");
+    const resultDiv   = document.getElementById('result');
+    const spinner     = document.getElementById('spinner');
+    const startBtn    = document.getElementById('startScanBtn');
+    const stopBtn     = document.getElementById('stopScanBtn');
+    const codeInput   = document.getElementById('codeInput');
+    const namaPenukar = document.getElementById('namaPenukar');
+    const cameraError = document.getElementById('cameraError');
+    let scanning      = false;
+
+    function showResult(msg, type) {
+      resultDiv.className     = type;
+      resultDiv.textContent   = msg;
+      resultDiv.style.display = 'block';
+    }
+
+    function setLoading(on) {
+      spinner.style.display = on ? 'block' : 'none';
+    }
+
+    function getNamaPenukar() {
+      const val = namaPenukar.value.trim();
+      if (!val) {
+        namaPenukar.classList.add('error-border');
+        namaPenukar.focus();
+        showResult('Nama penukar harus diisi terlebih dahulu.', 'error');
+        return null;
+      }
+      namaPenukar.classList.remove('error-border');
+      return val;
+    }
+
+    function onScanSuccess(text) {
+      if (!scanning) return;
+      const nama = getNamaPenukar();
+      if (!nama) return;
+
+      scanner.stop().then(() => {
+        scanning = false;
+        startBtn.style.display = 'inline-block';
+        stopBtn.style.display  = 'none';
+        setLoading(true);
+        showResult('Memproses...', 'info');
+
+      fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'qr', qrData: text, namaPenukar: nama })
+      })
+        .then(r => r.json())
+        .then(res => { setLoading(false); showResult(res.message, res.status); })
+        .catch(err => { setLoading(false); showResult('Error: ' + err.message, 'error'); });
+      }).catch(() => {
+        scanning = false;
+        startBtn.style.display = 'inline-block';
+        stopBtn.style.display  = 'none';
+      });
+    }
+
+    function startScanner() {
+      if (scanning) return; // prevent double-click during init
+      if (!getNamaPenukar()) return;
+      cameraError.style.display = 'none';
+
+      const startWithConstraint = (constraint) => {
+        return scanner.start(
+          constraint,
+          { fps: 10, qrbox: { width: 240, height: 240 } },
+          onScanSuccess,
+          () => {}
+        );
+      };
+
+      startWithConstraint({ facingMode: "environment" })
+        .catch(() => startWithConstraint({ facingMode: "user" }))
+        .catch(() =>
+          Html5Qrcode.getCameras().then(cameras => {
+            if (!cameras || !cameras.length) throw new Error('No cameras found');
+            return startWithConstraint(cameras[0].id);
+          })
+        )
+        .then(() => {
+          scanning = true;
+          startBtn.style.display = 'none';
+          stopBtn.style.display  = 'inline-block';
+          showResult('Arahkan kamera ke QR code', 'info');
+        })
+        .catch(err => {
+          const msg = err ? err.toString() : '';
+          const isPermission = msg.includes('NotAllowed') || msg.includes('Permission') || msg.includes('denied');
+          if (isPermission) {
+            cameraError.style.display = 'block';
+            resultDiv.style.display   = 'none';
+          } else {
+            showResult('Gagal membuka kamera: ' + msg, 'error');
+          }
+        });
+    }
+
+    function stopScanner() {
+      scanner.stop().then(() => {
+        scanning = false;
+        startBtn.style.display = 'inline-block';
+        stopBtn.style.display  = 'none';
+        showResult('Scanner dihentikan.', 'info');
+      }).catch(() => {
+        scanning = false;
+        startBtn.style.display = 'inline-block';
+        stopBtn.style.display  = 'none';
+      });
+    }
+
+    function verifyCode() {
+      const nama = getNamaPenukar();
+      if (!nama) return;
+      const code = codeInput.value.trim().toUpperCase();
+      if (code.length !== 4) { showResult('Kode harus 4 karakter.', 'error'); return; }
+
+      setLoading(true);
+      showResult('Memverifikasi...', 'info');
+      fetch(APPS_SCRIPT_URL, {
+  method: 'POST',
+  headers: { 'Content-Type': 'text/plain' },
+  body: JSON.stringify({ action: 'code', code: code, namaPenukar: nama })
+})
+  .then(r => r.json())
+  .then(res => { setLoading(false); showResult(res.message, res.status); codeInput.value = ''; })
+  .catch(err => { setLoading(false); showResult('Error: ' + err.message, 'error'); });
+    }
+
+    namaPenukar.addEventListener('input', () => namaPenukar.classList.remove('error-border'));
+    codeInput.addEventListener('keydown', e => { if (e.key === 'Enter') verifyCode(); });
+  </script>
+</body>
+</html>
