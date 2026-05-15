@@ -324,7 +324,6 @@
       showResult('Memverifikasi...', 'info');
       fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'code', code: code, namaPenukar: nama })
       })
         .then(r => r.json())
