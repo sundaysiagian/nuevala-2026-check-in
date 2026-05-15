@@ -248,7 +248,6 @@
 
       fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'qr', qrData: text, namaPenukar: nama })
       })
         .then(r => r.json())
