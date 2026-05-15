@@ -140,6 +140,14 @@
     #result.not_found     { background: #f8d7da; color: #721c24; }
     #result.error         { background: #f8d7da; color: #721c24; }
     #result.info          { background: #e2e3e5; color: #383d41; }
+
+    #ticketType {
+      display: none;
+      margin-top: 8px;
+      font-weight: bold;
+      text-align: center;
+      color: #111;
+    }
   </style>
 </head>
 
@@ -179,6 +187,7 @@
 
   <div id="spinner"></div>
   <div id="result"></div>
+  <div id="ticketType"></div>
 
   <script>
     if (false) { 
@@ -193,12 +202,20 @@
     const codeInput   = document.getElementById('codeInput');
     const namaPenukar = document.getElementById('namaPenukar');
     const cameraError = document.getElementById('cameraError');
+    const ticketTypeDiv = document.getElementById('ticketType');
     let scanning      = false;
 
-    function showResult(msg, type) {
+    function showResult(msg, type, ticketType) {
       resultDiv.className     = type;
       resultDiv.textContent   = msg;
       resultDiv.style.display = 'block';
+
+      if (ticketType) {
+        ticketTypeDiv.textContent = 'Jenis tiket: ' + ticketType.toUpperCase();
+        ticketTypeDiv.style.display = 'block';
+      } else {
+        ticketTypeDiv.style.display = 'none';
+      }
     }
 
     function setLoading(on) {
@@ -235,7 +252,7 @@
         body: JSON.stringify({ action: 'qr', qrData: text, namaPenukar: nama })
       })
         .then(r => r.json())
-        .then(res => { setLoading(false); showResult(res.message, res.status); })
+        .then(res => { setLoading(false); showResult(res.message, res.status, res.ticketType); })
         .catch(err => { setLoading(false); showResult('Error: ' + err.message, 'error'); });
       }).catch(() => {
         scanning = false;
@@ -278,6 +295,7 @@
           if (isPermission) {
             cameraError.style.display = 'block';
             resultDiv.style.display   = 'none';
+            ticketTypeDiv.style.display = 'none';
           } else {
             showResult('Gagal membuka kamera: ' + msg, 'error');
           }
@@ -306,13 +324,13 @@
       setLoading(true);
       showResult('Memverifikasi...', 'info');
       fetch(APPS_SCRIPT_URL, {
-  method: 'POST',
-  headers: { 'Content-Type': 'text/plain' },
-  body: JSON.stringify({ action: 'code', code: code, namaPenukar: nama })
-})
-  .then(r => r.json())
-  .then(res => { setLoading(false); showResult(res.message, res.status); codeInput.value = ''; })
-  .catch(err => { setLoading(false); showResult('Error: ' + err.message, 'error'); });
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'code', code: code, namaPenukar: nama })
+      })
+        .then(r => r.json())
+        .then(res => { setLoading(false); showResult(res.message, res.status, res.ticketType); codeInput.value = ''; })
+        .catch(err => { setLoading(false); showResult('Error: ' + err.message, 'error'); });
     }
 
     namaPenukar.addEventListener('input', () => namaPenukar.classList.remove('error-border'));
