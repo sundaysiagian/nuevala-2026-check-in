@@ -235,30 +235,45 @@
     }
 
     function onScanSuccess(text) {
-      if (!scanning) return;
-      const nama = getNamaPenukar();
-      if (!nama) return;
+  if (!scanning) return;
+  const nama = getNamaPenukar();
+  if (!nama) return;
 
-      scanner.stop().then(() => {
-        scanning = false;
-        startBtn.style.display = 'inline-block';
-        stopBtn.style.display  = 'none';
-        setLoading(true);
-        showResult('Memproses...', 'info');
+  scanner.stop().then(() => {
+    scanning = false;
+    startBtn.style.display = 'inline-block';
+    stopBtn.style.display  = 'none';
+    setLoading(true);
+    showResult('Memproses...', 'info');
 
-      fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'qr', qrData: text, namaPenukar: nama })
-      })
-        .then(r => r.json())
-        .then(res => { setLoading(false); showResult(res.message, res.status, res.ticketType); })
-        .catch(err => { setLoading(false); showResult('Error: ' + err.message, 'error'); });
-      }).catch(() => {
-        scanning = false;
-        startBtn.style.display = 'inline-block';
-        stopBtn.style.display  = 'none';
-      });
-    }
+    const params = new URLSearchParams({ action: 'qr', qrData: text, namaPenukar: nama });
+    fetch(APPS_SCRIPT_URL + '?' + params)
+      .then(r => r.json())
+      .then(res => { setLoading(false); showResult(res.message, res.status, res.ticketType); })
+      .catch(err => { setLoading(false); showResult('Error: ' + err.message, 'error'); });
+
+  }).catch(() => {
+    scanning = false;
+    startBtn.style.display = 'inline-block';
+    stopBtn.style.display  = 'none';
+  });
+}
+
+function verifyCode() {
+  const nama = getNamaPenukar();
+  if (!nama) return;
+  const code = codeInput.value.trim().toUpperCase();
+  if (code.length !== 4) { showResult('Kode harus 4 karakter.', 'error'); return; }
+
+  setLoading(true);
+  showResult('Memverifikasi...', 'info');
+
+  const params = new URLSearchParams({ action: 'code', code: code, namaPenukar: nama });
+  fetch(APPS_SCRIPT_URL + '?' + params)
+    .then(r => r.json())
+    .then(res => { setLoading(false); showResult(res.message, res.status, res.ticketType); codeInput.value = ''; })
+    .catch(err => { setLoading(false); showResult('Error: ' + err.message, 'error'); });
+}
 
     function startScanner() {
       if (scanning) return; // prevent double-click during init
@@ -313,24 +328,6 @@
         stopBtn.style.display  = 'none';
       });
     }
-
-    function verifyCode() {
-      const nama = getNamaPenukar();
-      if (!nama) return;
-      const code = codeInput.value.trim().toUpperCase();
-      if (code.length !== 4) { showResult('Kode harus 4 karakter.', 'error'); return; }
-
-      setLoading(true);
-      showResult('Memverifikasi...', 'info');
-      fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'code', code: code, namaPenukar: nama })
-      })
-        .then(r => r.json())
-        .then(res => { setLoading(false); showResult(res.message, res.status, res.ticketType); codeInput.value = ''; })
-        .catch(err => { setLoading(false); showResult('Error: ' + err.message, 'error'); });
-    }
-
     namaPenukar.addEventListener('input', () => namaPenukar.classList.remove('error-border'));
     codeInput.addEventListener('keydown', e => { if (e.key === 'Enter') verifyCode(); });
   </script>
